@@ -1,18 +1,66 @@
 #!/bin/bash
 
+ask_yes_no() {
+    while true; do
+        read -p "Proceed ? [Y/n] " yn
+        case $yn in
+            [Yy]* | "" ) return 0;;  # Treat "Y", "y", or Enter as "yes"
+            [Nn]* ) return 1;;       # Treat "N" or "n" as "no"
+            * ) echo "Please answer yes (Y) or no (N).";;
+        esac
+    done
+}
+
 clear
 while true; do
     # Prompt user for the disk to partition
+    echo "Your Current Table"
+    lsblk
+    echo "Note : Enter the full device path ex /dev/sda"
     read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
 
     # Check if the disk exists
-    if lsblk -l | grep $DISK; then
+    fdisk -l | grep $DISK
+    if [ $? -eq 0 ]; then
         break
     else
-        echo "Disk /dev/$DISK does not exist. Please check the disk name."
+        echo "Disk $DISK does not exist. Please check the disk name."
         sleep 1
     fi
 done
+
+echo -ne "
+-------------------------------------------------------------------------
+
+"
+
+if parted -s "$DISK" print | grep -q "Partition Table"; then
+  echo "Partition table found do deleteing it..."
+  # Unmount all partitions on the disk
+  echo "Unmounting all partitions on $DISK..."
+  for PARTITION in $(lsblk -ln -o NAME "$DISK" | grep -E "^${DISK##*/}"); do
+    umount "/dev/$PARTITION" 2>/dev/null
+  done
+
+  # Remove the partition table
+  echo "Removing partition table on $DISK..."
+  sgdisk --zap-all "$DISK"
+
+      # Wipe the disk (optional)
+  read -p "Do you want to securely wipe the disk? (y/n): " WIPE
+  if [[ "$WIPE" == "y" ]]; then
+    echo "Wiping $DISK with zeros..."
+    dd if=/dev/zero of="$DISK" bs=1M status=progress
+  fi
+
+  echo "Disk $DISK has been cleared."
+  clear
+  
+else
+  echo "No partition table found.."
+fi
+
+
 echo -ne "
 -------------------------------------------------------------------------
 
