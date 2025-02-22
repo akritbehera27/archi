@@ -42,17 +42,7 @@ if parted -s "$DISK" print | grep -q "Partition Table"; then
     umount "/dev/$PARTITION" 2>/dev/null
   done
 
-  # Remove the partition table
-  echo "Removing partition table on $DISK..."
-  sgdisk --zap-all "$DISK"
-
-      # Wipe the disk (optional)
-  read -p "Do you want to securely wipe the disk? (y/n): " WIPE
-  if [[ "$WIPE" == "y" ]]; then
-    echo "Wiping $DISK with zeros..."
-    dd if=/dev/zero of="$DISK" bs=1M status=progress
-  fi
-
+  parted -s "$DISK" mklabel gpt
   echo "Disk $DISK has been cleared."
   clear
   
