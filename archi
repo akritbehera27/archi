@@ -161,6 +161,7 @@ echo -ne "
                 Installing the base system and essentail packages
 -------------------------------------------------------------------------
 "
+echo "Generating FSTAB file....."
 touch /mnt/etc/fstab
 genfstab -U /mnt >> /mnt/etc/fstab
 echo "You are requested to check the fstab file for any mistakes"

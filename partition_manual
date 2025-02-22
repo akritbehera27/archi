@@ -4,4 +4,39 @@ echo -ne "
 -------------------------------------------------------------------------
                      Manula partitioning     
 -------------------------------------------------------------------------
+
 "
+ask_yes_no() {
+    while true; do
+        read -p "Want to Proceed ? [Y/n] " yn
+        case $yn in
+            [Yy]* | "" ) return 0;;  # Treat "Y", "y", or Enter as "yes"
+            [Nn]* ) return 1;;       # Treat "N" or "n" as "no"
+            * ) echo "Please answer yes (Y) or no (N).";;
+        esac
+    done
+}
+
+echo -ne '''
+    This requires You to exit it program and.."
+
+        1 . Create Partitions
+        2 . Formatting them with appropite forms
+        2.5 Setting LVM or encryption (optional)
+        3 . Mounting them on /mnt, /mnt/home , /mnt/boot
+        4 . Enabling SWAP and other..
+     >> An How to guid is provied in the repo main page << 
+
+'''
+echo "After Doing all You'r Custom setting Plase re-run the script: "
+echo "Use 'ctrl + c' to exit:"
+
+echo ""
+echo "Have you partitioned the disk...."
+if ask_yes_no; then
+    echo "Ruring Forward"
+else
+    echo "Please Do Manual Partitioning"
+    exit
+fi
+
