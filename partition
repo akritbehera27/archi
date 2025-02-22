@@ -1,4 +1,12 @@
 #!/bin/bash
+
+# Check if the script is run as root
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root or use sudo."
+  exit 1
+fi
+
+# Prompt user for the disk to partition
 read -p "Enter the disk to partition (e.g., /dev/vda): " DISK
 
 # Check if the disk exists
@@ -15,20 +23,32 @@ if [ ! -b "$DISK" ]; then
   exit 1
 fi
 
-# Check if the disk has an MBR partition table
-if parted -s "$DISK" print | grep -q "msdos"; then
-  echo "MBR partition table found. Removing it and creating a GPT partition table..."
-  parted -s "$DISK" mklabel gpt
-elif parted -s "$DISK" print | grep -q "gpt"; then
-  echo "GPT partition table already exists on $DISK."
+# Check if the disk is mounted
+if mount | grep -q "$DISK"; then
+  echo "Error: Disk $DISK or one of its partitions is mounted. Please unmount it first."
+  echo "Mounted partitions:"
+  mount | grep "$DISK"
+  exit 1
+fi
+
+# Check if the disk already has a partition table
+if parted -s "$DISK" print | grep -q "Partition Table"; then
+  echo "Partition table found on $DISK."
+  read -p "Do you want to overwrite it? (y/n): " OVERWRITE
+  if [[ "$OVERWRITE" != "y" ]]; then
+    echo "Aborting script."
+    exit 1
+  fi
 else
   echo "No partition table found. Creating GPT partition table on $DISK..."
-  parted -s "$DISK" mklabel gpt
 fi
+
+# Create GPT partition table
+parted -s "$DISK" mklabel gpt
 
 # Create EFI partition (1GB) and set its type to "EFI System"
 echo "Creating EFI partition (1GB) with type 'EFI System'..."
-parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB
+parted -s "$DISK" mkpart primary 1MiB 1025MiB
 parted -s "$DISK" set 1 esp on
 parted -s "$DISK" set 1 boot on
 mkfs.fat -F32 "${DISK}1"
@@ -46,37 +66,43 @@ SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # C
 THIRD_PART_START=$((EFI_SIZE_MiB + SWAP_SIZE_MiB))MiB
 
 # Create the third partition
-echo "Creating third partition starting at $THIRD_PART_START with size $THIRD_PART_SIZE..."
-parted -s "$DISK" mkpart primary "$THIRD_PART_START" "${THIRD_PART_SIZE}B"
+echo "Creating third partition starting at $THIRD_PART_START..."
+parted -s "$DISK" mkpart primary "$THIRD_PART_START" 100%
 
 # Initialize the third partition as an LVM physical volume
 echo "Setting up LVM on the third partition..."
 pvcreate "${DISK}3"
 
 # Prompt user for the volume group name
-read -p "Enter the name for Volume Group (e.g., vg0 ): " VG_NAME
+read -p "Enter the name for the LVM volume group (e.g., vg00): " VG_NAME
 vgcreate "$VG_NAME" "${DISK}3"
 
-# Prompt user for the logical volume name and size
-read -p "Enter the name /home partition (e.g., home): " HOMENAME
-read -p "Enter the size (e.g., 8G): " HOMESIZE
-lvcreate -L "$HOMESIZE" -n "$HOMENAME" "$VG_NAME"
+# Prompt user for the size of the /home logical volume
+read -p "Enter the size of the /home logical volume (e.g., 20G): " HOME_SIZE
+lvcreate -L "$HOME_SIZE" -n home "$VG_NAME"
 
-echo "[ optional, press Enter to use remaining space ] "
-read -p "Enter the size for root : " ROOT_SIZE
+# Prompt user for the size of the / (root) logical volume (optional)
+read -p "Enter the size of the / (root) logical volume (optional, press Enter to use remaining space): " ROOT_SIZE
 if [ -z "$ROOT_SIZE" ]; then
-  echo "Using remaining space for /root..."
+  echo "Using remaining space for / (root) logical volume..."
   lvcreate -l 100%FREE -n root "$VG_NAME"
 else
   echo "Creating / (root) logical volume with size $ROOT_SIZE..."
   lvcreate -L "$ROOT_SIZE" -n root "$VG_NAME"
 fi
 
-
-# Format the logical volume as ext4
-echo "Formatting the logical volume as ext4..."
-mkfs.ext4 "/dev/$VG_NAME/$HOMENAME"
+# Format the logical volumes
+echo "Formatting the logical volumes..."
+mkfs.ext4 "/dev/$VG_NAME/home"
 mkfs.ext4 "/dev/$VG_NAME/root"
+
+# Mount the partitions
+echo "Mounting partitions..."
+mount "/dev/$VG_NAME/root" /mnt
+mkdir /mnt/home
+mount "/dev/$VG_NAME/home" /mnt/home
+mkdir -p /mnt/boot
+mount "${DISK}1" /mnt/boot
 
 # Display the final partition layout
 echo "Final partition layout:"
@@ -88,3 +114,4 @@ vgs
 lvs
 
 echo "Partitioning and LVM setup completed successfully!"
+echo "You can now proceed with the Arch Linux installation."
