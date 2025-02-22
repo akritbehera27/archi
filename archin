@@ -33,7 +33,6 @@ console_keyboard_font() {
   fi
   echo "Layout Loded...."
   sleep 2
-  clear
 }
 
 
@@ -46,8 +45,6 @@ check_uefi() {
   echo "Kindly remember you'r boot, it might be a key for further steps."
   echo "If you are not satisfid then, Kindly Chnage You BOOT."
   sleep 2
-  clear
-
 }
 
 check_internet() {
@@ -61,7 +58,6 @@ check_internet() {
     sleep 2
     exit
   fi
-  clear
 }
 
 time_date() {
@@ -85,7 +81,6 @@ time_date() {
     fi
     done
   fi
-  clear
 }
 
 update_mirrors() {
@@ -96,16 +91,48 @@ update_mirrors() {
     reflector -l 25 –-sort rate –-verbose –-download-timeout 10 –-save /etc/pacman.d/mirrorlist
   else
     echo "Not Update you mirror list"
-  else
+  fi
   sleep 1
-  clear
 }
 
-# check_uefi
-# console_keyboard_font
-# time_date
-# check_internet
+echo "Settign Console Font : Ter-v24b...."
+setfont ter-v24b
+sleep 1
+clear
 
-## Disk Pariton Script
+echo -ne "
+-------------------------------------------------------------------------
+                       █████╗ ██████╗  ██████╗██╗  ██╗██╗
+                      ██╔══██╗██╔══██╗██╔════╝██║  ██║██║
+                      ███████║██████╔╝██║     ███████║██║
+                      ██╔══██║██╔══██╗██║     ██╔══██║██║
+                      ██║  ██║██║  ██║╚██████╗██║  ██║██║
+                      ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝
+-------------------------------------------------------------------------
+                      Minimalist Arch Linux Installer
+-------------------------------------------------------------------------
+                      
+"
+check_internet
+echo -ne "
 
-# update_mirrors
+-------------------------------------------------------------------------
+                          Setting Up Basics
+-------------------------------------------------------------------------
+"
+console_keyboard_font
+time_date
+echo -ne "
+-------------------------------------------------------------------------
+                     Disk Managment and Partition     
+-------------------------------------------------------------------------
+"
+
+## Disk Pariton Script--- not created
+
+echo -ne "
+-------------------------------------------------------------------------
+                    Setting up mirrors for optimal download 
+-------------------------------------------------------------------------
+"
+update_mirrors

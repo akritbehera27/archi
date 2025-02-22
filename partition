@@ -5,15 +5,18 @@ while true; do
     read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
 
     # Check if the disk exists
-    if [ ! -e "$DISK" ]; then
-        echo "Disk $DISK does not exist. Please check the disk name."
-        sleep 1
-        clear
-    else
+    if lsblk -l | grep $DISK; then
         break
+    else
+        echo "Disk /dev/$DISK does not exist. Please check the disk name."
+        sleep 1
     fi
 done
+echo -ne "
+-------------------------------------------------------------------------
 
+"
+echo "Changing Partiton Table......."
 # Check if the disk has an MBR partition table
 if parted -s "$DISK" print | grep -q "msdos"; then
   echo "MBR partition table found. Removing it and creating a GPT partition table..."
@@ -25,12 +28,22 @@ else
   parted -s "$DISK" mklabel gpt
 fi
 
+echo -ne "
+-------------------------------------------------------------------------
+
+"
+
 # Create EFI partition (1GB) and set its type to "EFI System"
-echo "Creating EFI partition (1GB) with type 'EFI System'..."
+echo "Creating EFI partition (1GB) with type 'EFI System'......"
 parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB
 parted -s "$DISK" set 1 esp on
 parted -s "$DISK" set 1 boot on
 mkfs.fat -F32 "${DISK}1"
+
+echo -ne "
+-------------------------------------------------------------------------
+
+"
 
 # Prompt user for swap partition size
 read -p "Enter the size of the swap partition (e.g., 4G): " SWAP_SIZE
@@ -39,15 +52,26 @@ parted -s "$DISK" mkpart primary linux-swap 1025MiB "${SWAP_SIZE}B"
 mkswap "${DISK}2"
 swapon "${DISK}2"
 
+echo -ne "
+-------------------------------------------------------------------------
+
+"
+
 # Calculate the starting point for the third partition
 EFI_SIZE_MiB=1025  # EFI partition size in MiB (1GB)
 SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # Convert swap size to MiB
 THIRD_PART_START=$((EFI_SIZE_MiB + SWAP_SIZE_MiB))MiB
 
 # Create the third partition
-echo "Creating third partition starting at $THIRD_PART_START with size $THIRD_PART_SIZE..."
+read -p "Enter the LVM partition Size (e.g., 20G): " THIRD_PART_SIZE
+echo "Creating partition with size $THIRD_PART_SIZE..."
 parted -s "$DISK" mkpart primary "$THIRD_PART_START" "${THIRD_PART_SIZE}B"
 
+echo -ne "
+-------------------------------------------------------------------------
+
+"
+clear
 # Initialize the third partition as an LVM physical volume
 echo "Setting up LVM on the third partition..."
 pvcreate "${DISK}3"
@@ -67,16 +91,32 @@ if [ -z "$ROOT_SIZE" ]; then
   echo "Using remaining space for /root..."
   lvcreate -l 100%FREE -n root "$VG_NAME"
 else
-  echo "Creating / (root) logical volume with size $ROOT_SIZE..."
+  echo "Creating root logical volume with size $ROOT_SIZE..."
   lvcreate -L "$ROOT_SIZE" -n root "$VG_NAME"
 fi
 
+echo -ne "
+-------------------------------------------------------------------------
+
+"
 
 # Format the logical volume as ext4
 echo "Formatting the logical volume as ext4..."
 mkfs.ext4 "/dev/$VG_NAME/$HOMENAME"
 mkfs.ext4 "/dev/$VG_NAME/root"
 
+# Mount the partitions
+echo "Mounting partitions..."
+mount "/dev/$VG_NAME/root" /mnt
+mkdir /mnt/home
+mount "/dev/$VG_NAME/$HOMENAME" /mnt/home
+mkdir -p /mnt/boot
+mount "${DISK}1" /mnt/boot
+echo -ne "
+-------------------------------------------------------------------------
+
+"
+clear
 # Display the final partition layout
 echo "Final partition layout:"
 parted -s "$DISK" print
