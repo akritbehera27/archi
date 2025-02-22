@@ -5,6 +5,70 @@ echo -ne "
                      Automatic partitioning     
 -------------------------------------------------------------------------
 "
+#!/bin/bash
+
+# Function to remove all Logical Volumes (LVs)
+remove_lvs() {
+    echo "Searching for Logical Volumes..."
+    LVs=$(lvs --noheadings -o lv_name,vg_name --separator=":" | tr -d ' ')
+    
+    if [[ -n "$LVs" ]]; then
+        echo "Found the following Logical Volumes:"
+        echo "$LVs" | sed 's/:/ in VG: /g'
+        
+        echo "Removing Logical Volumes..."
+        while IFS=":" read -r LV VG; do
+            if [[ -n "$LV" && -n "$VG" ]]; then
+                echo "Removing LV: $LV from VG: $VG"
+                lvremove -y "$VG/$LV"
+            fi
+        done <<< "$LVs"
+    else
+        echo "No Logical Volumes found."
+    fi
+}
+
+# Function to remove all Volume Groups (VGs)
+remove_vgs() {
+    echo "Searching for Volume Groups..."
+    VGs=$(vgs --noheadings -o vg_name | tr -d ' ')
+
+    if [[ -n "$VGs" ]]; then
+        echo "Found the following Volume Groups:"
+        echo "$VGs"
+
+        echo "Removing Volume Groups..."
+        while read -r VG; do
+            if [[ -n "$VG" ]]; then
+                echo "Removing VG: $VG"
+                vgremove -y "$VG"
+            fi
+        done <<< "$VGs"
+    else
+        echo "No Volume Groups found."
+    fi
+}
+
+# Function to remove all Physical Volumes (PVs)
+remove_pvs() {
+    echo "Searching for Physical Volumes..."
+    PVs=$(pvs --noheadings -o pv_name | tr -d ' ')
+
+    if [[ -n "$PVs" ]]; then
+        echo "Found the following Physical Volumes:"
+        echo "$PVs"
+
+        echo "Removing Physical Volumes..."
+        while read -r PV; do
+            if [[ -n "$PV" ]]; then
+                echo "Removing PV: $PV"
+                pvremove -y "$PV"
+            fi
+        done <<< "$PVs"
+    else
+        echo "No Physical Volumes found."
+    fi
+}
 
 while true; do
     # Prompt user for the disk to partition
@@ -30,25 +94,13 @@ umount -A --recursive /mnt # make sure everything is unmounted before we start
 for PARTITION in $(lsblk -ln -o NAME $DISK | grep -E "^${DISK##*/}"); do
   if swapon --show | grep -q "/dev/${PARTITION}"; then
     echo "Disabling swap on /dev/${PARTITION}..."
-    swapoff /dev/${PARTITION} > /dev/null 2>&1
+    swapoff /dev/${PARTITION} > /dev/null
   fi
 done
 
-echo ""
-if command -v vgchange &>/dev/null; then
-  for VG in $(vgs --noheadings -o vg_name); do
-    echo "Deactivating volume group ${VG}..."
-    vgremove ${VG}
-  done
-fi
-
-echo ""
-if command -v pvremove &>/dev/null; then
-  for PV in $(pvs --noheadings -o pv_name); do
-    echo "Removing physical volume ${PV}..."
-    pvremove ${PV}
-  done
-fi
+remove_lvs
+remove_vgs
+remove_pvs
 
 sgdisk -Z $DISK # zap all on disk
 partprobe $DISK # reread partition table to ensure it is correct
