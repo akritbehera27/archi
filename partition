@@ -25,19 +25,8 @@ while true; do
 
 if choice_d; then
   # Automatic
-  
-
-  
-
+  ./partition_auto
 else
-
+  # Automatic
+  ./partition_manual
 fi
-  # Manual
-  echo "You have Choose the manual option"
-  DISK=$(ask_for_disk)
-  fdisk $DISK
-echo "Do you want to set up LVM"
-
-
-
-

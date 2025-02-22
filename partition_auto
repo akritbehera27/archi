@@ -11,6 +11,7 @@ while true; do
     echo "Your Current Table"
     lsblk
     echo "Note : Enter the full device path ex /dev/sda"
+    echo ""
     read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
 
     # Check if the disk exists
@@ -26,130 +27,132 @@ done
 
 #Earing everyting on the disk
 umount -A --recursive /mnt # make sure everything is unmounted before we start
-# disk prep
-sgdisk -Z $DISK # zap all on disk
-# sgdisk -a 2048 -o $DISK # new gpt disk 2048 alignment
+for PARTITION in $(lsblk -ln -o NAME $DISK | grep -E "^${DISK##*/}"); do
+  if swapon --show | grep -q "/dev/${PARTITION}"; then
+    echo "Disabling swap on /dev/${PARTITION}..."
+    swapoff /dev/${PARTITION}
+  fi
+done
 
+if command -v vgchange &>/dev/null; then
+  for VG in $(vgs --noheadings -o vg_name); do
+    echo "Deactivating volume group ${VG}..."
+    vgchange -an ${VG}
+  done
+fi
+
+if command -v pvremove &>/dev/null; then
+  for PV in $(pvs --noheadings -o pv_name); do
+    echo "Removing physical volume ${PV}..."
+    pvremove ${PV}
+  done
+fi
+
+sgdisk -Z $DISK # zap all on disk
 partprobe $DISK # reread partition table to ensure it is correct
 
 echo -ne "
 -------------------------------------------------------------------------
 "
 echo "Changing Partiton Table......."
-# Check if the disk has an MBR partition table
-if parted -s "$DISK" print | grep -q "msdos"; then
-    echo "MBR partition table found. Removing it and creating a GPT partition table..."
-    parted -s "$DISK" mklabel gpt
-elif parted -s "$DISK" print | grep -q "gpt"; then
-    echo "GPT partition table already exists on $DISK."
-else
-    echo "No partition table found. Creating GPT partition table on $DISK..."
-    parted -s "$DISK" mklabel gpt
-fi
-
+parted -s "$DISK" mklabel gpt
 
 echo -ne "
-  -------------------------------------------------------------------------
-  "
-  # Create EFI partition (1GB) and set its type to "EFI System"
-  echo "Creating EFI partition (1GB) with type 'EFI System'......"
-  parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB
-  parted -s "$DISK" set 1 esp on
-  parted -s "$DISK" set 1 boot on
-  mkfs.fat -F32 "${DISK}1"
+-------------------------------------------------------------------------
+"
+# Create EFI partition (1GB) and set its type to "EFI System"
+echo "Creating EFI partition (1GB) with type 'EFI System'......"
+parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB
+parted -s "$DISK" set 1 esp on
+parted -s "$DISK" set 1 boot on
+mkfs.fat -F32 "${DISK}1"
 
+echo -ne "
+-------------------------------------------------------------------------
 
+"
+# Prompt user for swap partition size
+read -p "Enter the size of the swap partition (e.g., 4G): " SWAP_SIZE
+echo "Creating swap partition with size $SWAP_SIZE..."
+parted -s "$DISK" mkpart primary linux-swap 1025MiB "${SWAP_SIZE}B"
+mkswap "${DISK}2"
+swapon "${DISK}2"
 
-  echo -ne "
-  -------------------------------------------------------------------------
+echo -ne "
+-------------------------------------------------------------------------
 
-  "
+"
+fdisk -l | grep $DISK
+echo ""
+# Calculate the starting point for the third partition
+EFI_SIZE_MiB=1025  # EFI partition size in MiB (1GB)
+SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # Convert swap size to MiB
+THIRD_PART_START=$((EFI_SIZE_MiB + SWAP_SIZE_MiB))MiB
 
-  # Prompt user for swap partition size
-  read -p "Enter the size of the swap partition (e.g., 4G): " SWAP_SIZE
-  echo "Creating swap partition with size $SWAP_SIZE..."
-  parted -s "$DISK" mkpart primary linux-swap 1025MiB "${SWAP_SIZE}B"
-  mkswap "${DISK}2"
-  swapon "${DISK}2"
-
-
-
-  echo -ne "
-  -------------------------------------------------------------------------
-
-  "
-  fdisk -l | grep $DISK
-  echo ""
-  # Calculate the starting point for the third partition
-  EFI_SIZE_MiB=1025  # EFI partition size in MiB (1GB)
-  SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # Convert swap size to MiB
-  THIRD_PART_START=$((EFI_SIZE_MiB + SWAP_SIZE_MiB))MiB
-
-  # Create the third partition
-  read -p "Enter the LVM partition Size (e.g., 20G): " THIRD_PART_SIZE
+# Create the third partition
+echo "[ optional, press Enter to use remaining space ] "
+read -p "Enter the LVM partition Size (e.g., 20G): " THIRD_PART_SIZE
   
-  if [ -z "$THIRD_PART_SIZE" ]; then
-    echo "Using remaining space for partiton..."
-    parted -s "$DISK" mkpart primary "$THIRD_PART_START" 100%
-  else
-    echo "Creating partition with size $THIRD_PART_SIZE..."
-    parted -s "$DISK" mkpart primary "$THIRD_PART_START" "${THIRD_PART_SIZE}B"
-  fi
+if [ -z "$THIRD_PART_SIZE" ]; then
+  echo "Using remaining space for partiton..."
+  parted -s "$DISK" mkpart primary "$THIRD_PART_START" 100%
+else
+  echo "Creating partition with size $THIRD_PART_SIZE..."
+  parted -s "$DISK" mkpart primary "$THIRD_PART_START" "${THIRD_PART_SIZE}B"
+fi
 
+echo -ne "
+-------------------------------------------------------------------------
+"
+# Initialize the third partition as an LVM physical volume
+echo "Setting up LVM on the third partition..."
+pvcreate "${DISK}3"
 
+# Prompt user for the volume group name
+read -p "Enter the name for Volume Group (e.g., vg0 ): " VG_NAME
+vgcreate "$VG_NAME" "${DISK}3"
 
-  echo -ne "
-  -------------------------------------------------------------------------
-  "
-  # Initialize the third partition as an LVM physical volume
-  echo "Setting up LVM on the third partition..."
-  pvcreate "${DISK}3"
-
-  # Prompt user for the volume group name
-  read -p "Enter the name for Volume Group (e.g., vg0 ): " VG_NAME
-  vgcreate "$VG_NAME" "${DISK}3"
-
-  # Prompt user for the logical volume name and size
-  read -p "Enter the size for /home (e.g., 8G): " HOMESIZE
-  lvcreate -L "$HOMESIZE" -n home "$VG_NAME"
-
-  echo "[ optional, press Enter to use remaining space ] "
-  read -p "Enter the size for root : " ROOT_SIZE
+# Prompt user for the logical volume name and size
+read -p "Enter the size for /home (e.g., 8G): " HOMESIZE
+lvcreate -L "$HOMESIZE" -n home "$VG_NAME"
+echo ""
+echo "[ optional, press Enter to use remaining space ] "
+read -p "Enter the size for root : " ROOT_SIZE
   if [ -z "$ROOT_SIZE" ]; then
-    echo "Using remaining space for /root..."
-    lvcreate -l 100%FREE -n root "$VG_NAME"
-  else
-    echo "Creating root logical volume with size $ROOT_SIZE..."
-    lvcreate -L "$ROOT_SIZE" -n root "$VG_NAME"
-  fi
+  echo "Using remaining space for /root..."
+  lvcreate -l 100%FREE -n root "$VG_NAME"
+else
+  echo "Creating root logical volume with size $ROOT_SIZE..."
+  lvcreate -L "$ROOT_SIZE" -n root "$VG_NAME"
+fi
 
-  echo -ne "
-  -------------------------------------------------------------------------
-  "
+echo -ne "
+-------------------------------------------------------------------------
+"
 
-  # Format the logical volume as ext4
-  echo "Formatting the logical volume as ext4..."
-  mkfs.ext4 "/dev/$VG_NAME/home"
-  mkfs.ext4 "/dev/$VG_NAME/root"
+# Format the logical volume as ext4
+echo "Formatting the logical volume as ext4..."
+mkfs.ext4 "/dev/$VG_NAME/home"
+mkfs.ext4 "/dev/$VG_NAME/root"
 
-  # Mount the partitions
-  echo "Mounting partitions..."
-  mount "/dev/$VG_NAME/root" /mnt
-  mkdir /mnt/home
-  mount "/dev/$VG_NAME/home" /mnt/home
-  mkdir -p /mnt/boot
-  mount "${DISK}1" /mnt/boot
-  echo -ne "
-  -------------------------------------------------------------------------
-  "
+# Mount the partitions
+echo "Mounting partitions..."
+mount "/dev/$VG_NAME/root" /mnt
+mkdir /mnt/home
+mount "/dev/$VG_NAME/home" /mnt/home
+mkdir -p /mnt/boot
+mount "${DISK}1" /mnt/boot
+echo -ne "
+-------------------------------------------------------------------------
+"
 
-  # Display the final partition layout
-  echo "Final partition layout:"
-  parted -s "$DISK" print
+# Display the final partition layout
+echo "Final partition layout:"
+parted -s "$DISK" print
 
-  # Display LVM information
-  echo "LVM Volume Group and Logical Volume:"
-  vgs
+# Display LVM information
+echo "LVM Volume Group and Logical Volume:"
+vgs
 lvs
 
 echo "Partitioning and LVM setup completed successfully!"
