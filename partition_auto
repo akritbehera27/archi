@@ -9,7 +9,6 @@ echo -ne "
 
 # Function to remove all Logical Volumes (LVs)
 remove_lvs() {
-    echo "Searching for Logical Volumes..."
     LVs=$(lvs --noheadings -o lv_name,vg_name --separator=":" | tr -d ' ')
     
     if [[ -n "$LVs" ]]; then
@@ -19,7 +18,6 @@ remove_lvs() {
         echo "Removing Logical Volumes..."
         while IFS=":" read -r LV VG; do
             if [[ -n "$LV" && -n "$VG" ]]; then
-                echo "Removing LV: $LV from VG: $VG"
                 lvremove -y "$VG/$LV"
             fi
         done <<< "$LVs"
@@ -30,17 +28,14 @@ remove_lvs() {
 
 # Function to remove all Volume Groups (VGs)
 remove_vgs() {
-    echo "Searching for Volume Groups..."
     VGs=$(vgs --noheadings -o vg_name | tr -d ' ')
 
     if [[ -n "$VGs" ]]; then
         echo "Found the following Volume Groups:"
-        echo "$VGs"
 
         echo "Removing Volume Groups..."
         while read -r VG; do
             if [[ -n "$VG" ]]; then
-                echo "Removing VG: $VG"
                 vgremove -y "$VG"
             fi
         done <<< "$VGs"
@@ -51,22 +46,33 @@ remove_vgs() {
 
 # Function to remove all Physical Volumes (PVs)
 remove_pvs() {
-    echo "Searching for Physical Volumes..."
     PVs=$(pvs --noheadings -o pv_name | tr -d ' ')
 
     if [[ -n "$PVs" ]]; then
         echo "Found the following Physical Volumes:"
-        echo "$PVs"
 
         echo "Removing Physical Volumes..."
         while read -r PV; do
             if [[ -n "$PV" ]]; then
-                echo "Removing PV: $PV"
                 pvremove -y "$PV"
             fi
         done <<< "$PVs"
     else
         echo "No Physical Volumes found."
+    fi
+}
+
+disable_swap() {
+    SWAPS=$(swapon --show=NAME --noheadings)
+
+    if [[ -n "$SWAPS" ]]; then
+        echo "Found swap"
+        while read -r SWAP; do
+            swapoff "$SWAP"
+        done <<< "$SWAPS"
+        echo "All swap partitions are now turned off."
+    else
+        echo "No active swap partitions found."
     fi
 }
 
@@ -91,15 +97,13 @@ done
 
 #Earing everyting on the disk
 umount -A --recursive /mnt # make sure everything is unmounted before we start
-for PARTITION in $(lsblk -ln -o NAME $DISK | grep -E "^${DISK##*/}"); do
-  if swapon --show | grep -q "/dev/${PARTITION}"; then
-    echo "Disabling swap on /dev/${PARTITION}..."
-    swapoff /dev/${PARTITION} > /dev/null
-  fi
-done
 
+disable_swap
+echo ""
 remove_lvs
+echo ""
 remove_vgs
+echo ""
 remove_pvs
 
 sgdisk -Z $DISK # zap all on disk
@@ -166,9 +170,11 @@ pvcreate "${DISK}3"
 read -p "Enter the name for Volume Group (e.g., vg0 ): " VG_NAME
 vgcreate "$VG_NAME" "${DISK}3"
 
+echo ""
 # Prompt user for the logical volume name and size
 read -p "Enter the size for /home (e.g., 8G): " HOMESIZE
 lvcreate -L "$HOMESIZE" -n home "$VG_NAME"
+
 echo ""
 echo "[ optional, press Enter to use remaining space ] "
 read -p "Enter the size for root : " ROOT_SIZE
