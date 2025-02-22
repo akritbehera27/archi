@@ -1,5 +1,6 @@
 #!/bin/bash
 
+clear
 while true; do
     # Prompt user for the disk to partition
     read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
