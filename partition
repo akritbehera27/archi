@@ -1,18 +1,19 @@
 #!/bin/bash
+read -p "Enter the disk to partition (e.g., /dev/vda): " DISK
 
-while true; do
-    # Prompt user for the disk to partition
-    read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
+# Check if the disk exists
+if [ ! -e "$DISK" ]; then
+  echo "Error: Disk $DISK does not exist. Please check the disk name."
+  echo "Available disks:"
+  lsblk -d -o NAME,SIZE,MODEL
+  exit 1
+fi
 
-    # Check if the disk exists
-    if [ ! -e "$DISK" ]; then
-        echo "Disk $DISK does not exist. Please check the disk name."
-        sleep 1
-        clear
-    else
-        break
-    fi
-done
+# Check if the disk is a valid block device
+if [ ! -b "$DISK" ]; then
+  echo "Error: $DISK is not a valid block device."
+  exit 1
+fi
 
 # Check if the disk has an MBR partition table
 if parted -s "$DISK" print | grep -q "msdos"; then
