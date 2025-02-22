@@ -95,6 +95,29 @@ update_mirrors() {
   sleep 1
 }
 
+inst_base_pkg() {
+  echo "Installing Base Pakages..."
+  pacstrap -K /mnt base ,linux-lts , linux-lts-headers , linux-firmware
+
+  clear
+  echo "Installing Essestial Pakages...." 
+  pacstrap -K /mnt sudo , base-devel , grub , efibootmgr , networkmanager , lvm2 , mtools , os-prober , dosfstools , vim
+
+  clear
+  echo "Do you want to install DISPLAY Drivers for INTEL"
+  if ask_yes_no; then
+    pacstrap -K /mnt mesa , xf86-video-intel
+    
+  else
+  echo -ne "
+-------------------------------------------------------------------------
+              WE ARE HUMBALLY SOORY ,WE DOTN HAVE OTHER DIVERS 
+            SET IN OUR LIBRARY... YOU HAVE TO INSTALL'EM MNUALLY
+-------------------------------------------------------------------------
+"
+fi
+}
+
 echo "Settign Console Font : Ter-v24b...."
 setfont ter-v24b
 sleep 1
@@ -135,3 +158,14 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 update_mirrors
+
+echo -ne "
+-------------------------------------------------------------------------
+                Installing the base system and essentail packages
+-------------------------------------------------------------------------
+"
+touch /mnt/etc/fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+echo "You are requested to check the fstab file for any mistakes"
+cat /mnt/etc/fstab
+inst_base_pkg
