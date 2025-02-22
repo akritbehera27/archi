@@ -127,7 +127,6 @@ echo -ne "
                      Disk Managment and Partition     
 -------------------------------------------------------------------------
 "
-
 ./partition
 
 echo -ne "

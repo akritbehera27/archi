@@ -33,28 +33,6 @@ echo -ne "
 -------------------------------------------------------------------------
 
 "
-
-if parted -s "$DISK" print | grep -q "Partition Table"; then
-  echo "Partition table found do deleteing it..."
-  # Unmount all partitions on the disk
-  echo "Unmounting all partitions on $DISK..."
-  for PARTITION in $(lsblk -ln -o NAME "$DISK" | grep -E "^${DISK##*/}"); do
-    umount "/dev/$PARTITION" 2>/dev/null
-  done
-
-  parted -s "$DISK" mklabel gpt
-  echo "Disk $DISK has been cleared."
-  clear
-  
-else
-  echo "No partition table found.."
-fi
-
-
-echo -ne "
--------------------------------------------------------------------------
-
-"
 echo "Changing Partiton Table......."
 # Check if the disk has an MBR partition table
 if parted -s "$DISK" print | grep -q "msdos"; then
@@ -95,7 +73,7 @@ echo -ne "
 -------------------------------------------------------------------------
 
 "
-
+fdisk -l | grep $DISK
 # Calculate the starting point for the third partition
 EFI_SIZE_MiB=1025  # EFI partition size in MiB (1GB)
 SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # Convert swap size to MiB
@@ -110,7 +88,6 @@ echo -ne "
 -------------------------------------------------------------------------
 
 "
-clear
 # Initialize the third partition as an LVM physical volume
 echo "Setting up LVM on the third partition..."
 pvcreate "${DISK}3"
@@ -155,7 +132,6 @@ echo -ne "
 -------------------------------------------------------------------------
 
 "
-clear
 # Display the final partition layout
 echo "Final partition layout:"
 parted -s "$DISK" print
