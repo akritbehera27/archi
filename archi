@@ -145,11 +145,8 @@ echo -ne "
 "
 console_keyboard_font
 time_date
-echo -ne "
--------------------------------------------------------------------------
-                     Disk Managment and Partition     
--------------------------------------------------------------------------
-"
+
+#-----------------partion managment starts hear---------------------------
 ./partition
 
 echo -ne "
@@ -167,5 +164,5 @@ echo -ne "
 touch /mnt/etc/fstab
 genfstab -U /mnt >> /mnt/etc/fstab
 echo "You are requested to check the fstab file for any mistakes"
-cat /mnt/etc/fstab
+cat /mnt/etc/fstab | less
 inst_base_pkg

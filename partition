@@ -1,144 +1,43 @@
 #!/bin/bash
 
-ask_yes_no() {
-    while true; do
-        read -p "Proceed ? [Y/n] " yn
-        case $yn in
-            [Yy]* | "" ) return 0;;  # Treat "Y", "y", or Enter as "yes"
-            [Nn]* ) return 1;;       # Treat "N" or "n" as "no"
+echo -ne "
+-------------------------------------------------------------------------
+                     Disk Managment and Partition     
+-------------------------------------------------------------------------
+"
+
+choice_d() {
+
+echo "Do you want to manually edit-the filesystem"
+echo "NOITCE : Using Automatic will wipe yor disk..."
+echo " [0] : Manual"
+echo " [1] : Automatic (default)"
+while true; do
+        read n
+        case $n in
+            [1]* | "" ) return 0;;  # Treat "Y", "y", or Enter as "yes"
+            [0]* ) return 1;;       # Treat "N" or "n" as "no"
             * ) echo "Please answer yes (Y) or no (N).";;
         esac
     done
 }
 
-clear
-while true; do
-    # Prompt user for the disk to partition
-    echo "Your Current Table"
-    lsblk
-    echo "Note : Enter the full device path ex /dev/sda"
-    read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
 
-    # Check if the disk exists
-    fdisk -l | grep $DISK
-    if [ $? -eq 0 ]; then
-        break
-    else
-        echo "Disk $DISK does not exist. Please check the disk name."
-        sleep 1
-    fi
-done
+if choice_d; then
+  # Automatic
+  
 
-echo -ne "
--------------------------------------------------------------------------
+  
 
-"
-echo "Changing Partiton Table......."
-# Check if the disk has an MBR partition table
-if parted -s "$DISK" print | grep -q "msdos"; then
-  echo "MBR partition table found. Removing it and creating a GPT partition table..."
-  parted -s "$DISK" mklabel gpt
-elif parted -s "$DISK" print | grep -q "gpt"; then
-  echo "GPT partition table already exists on $DISK."
 else
-  echo "No partition table found. Creating GPT partition table on $DISK..."
-  parted -s "$DISK" mklabel gpt
+
 fi
+  # Manual
+  echo "You have Choose the manual option"
+  DISK=$(ask_for_disk)
+  fdisk $DISK
+echo "Do you want to set up LVM"
 
-echo -ne "
--------------------------------------------------------------------------
 
-"
 
-# Create EFI partition (1GB) and set its type to "EFI System"
-echo "Creating EFI partition (1GB) with type 'EFI System'......"
-parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB
-parted -s "$DISK" set 1 esp on
-parted -s "$DISK" set 1 boot on
-mkfs.fat -F32 "${DISK}1"
 
-echo -ne "
--------------------------------------------------------------------------
-
-"
-
-# Prompt user for swap partition size
-read -p "Enter the size of the swap partition (e.g., 4G): " SWAP_SIZE
-echo "Creating swap partition with size $SWAP_SIZE..."
-parted -s "$DISK" mkpart primary linux-swap 1025MiB "${SWAP_SIZE}B"
-mkswap "${DISK}2"
-swapon "${DISK}2"
-
-echo -ne "
--------------------------------------------------------------------------
-
-"
-fdisk -l | grep $DISK
-# Calculate the starting point for the third partition
-EFI_SIZE_MiB=1025  # EFI partition size in MiB (1GB)
-SWAP_SIZE_MiB=$(echo "$SWAP_SIZE" | sed 's/G//g' | awk '{print $1 * 1024}')  # Convert swap size to MiB
-THIRD_PART_START=$((EFI_SIZE_MiB + SWAP_SIZE_MiB))MiB
-
-# Create the third partition
-read -p "Enter the LVM partition Size (e.g., 20G): " THIRD_PART_SIZE
-echo "Creating partition with size $THIRD_PART_SIZE..."
-parted -s "$DISK" mkpart primary "$THIRD_PART_START" "${THIRD_PART_SIZE}B"
-
-echo -ne "
--------------------------------------------------------------------------
-
-"
-# Initialize the third partition as an LVM physical volume
-echo "Setting up LVM on the third partition..."
-pvcreate "${DISK}3"
-
-# Prompt user for the volume group name
-read -p "Enter the name for Volume Group (e.g., vg0 ): " VG_NAME
-vgcreate "$VG_NAME" "${DISK}3"
-
-# Prompt user for the logical volume name and size
-read -p "Enter the name /home partition (e.g., home): " HOMENAME
-read -p "Enter the size (e.g., 8G): " HOMESIZE
-lvcreate -L "$HOMESIZE" -n "$HOMENAME" "$VG_NAME"
-
-echo "[ optional, press Enter to use remaining space ] "
-read -p "Enter the size for root : " ROOT_SIZE
-if [ -z "$ROOT_SIZE" ]; then
-  echo "Using remaining space for /root..."
-  lvcreate -l 100%FREE -n root "$VG_NAME"
-else
-  echo "Creating root logical volume with size $ROOT_SIZE..."
-  lvcreate -L "$ROOT_SIZE" -n root "$VG_NAME"
-fi
-
-echo -ne "
--------------------------------------------------------------------------
-
-"
-
-# Format the logical volume as ext4
-echo "Formatting the logical volume as ext4..."
-mkfs.ext4 "/dev/$VG_NAME/$HOMENAME"
-mkfs.ext4 "/dev/$VG_NAME/root"
-
-# Mount the partitions
-echo "Mounting partitions..."
-mount "/dev/$VG_NAME/root" /mnt
-mkdir /mnt/home
-mount "/dev/$VG_NAME/$HOMENAME" /mnt/home
-mkdir -p /mnt/boot
-mount "${DISK}1" /mnt/boot
-echo -ne "
--------------------------------------------------------------------------
-
-"
-# Display the final partition layout
-echo "Final partition layout:"
-parted -s "$DISK" print
-
-# Display LVM information
-echo "LVM Volume Group and Logical Volume:"
-vgs
-lvs
-
-echo "Partitioning and LVM setup completed successfully!"
