@@ -82,7 +82,9 @@ update_mirrors() {
   echo "Do You Want to Update Your mirrors list, it will porvide you with faster download speed"
   echo "This file will also be coppied to the newly installed arch system"
   if ask_yes_no; then
-    reflector -l 25 --sort rate --verbose --download-timeout 10 --save /etc/pacman.d/mirror.list
+    ehco "Updating your mirror list......."
+    echo "This may take a while, PLEASE WAIT........."
+    reflector -l 25 --sort rate --verbose --download-timeout 10 --save /etc/pacman.d/mirror.list > /dev/null 2>&1
   else
     echo "Not Update you mirror list"
   fi

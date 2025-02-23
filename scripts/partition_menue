@@ -26,8 +26,8 @@ while true; do
 
 if choice_d; then
   # Automatic
-  ./partition_auto
+  ./scripts/partition_auto
 else
   # Automatic
-  ./partition_manual
+  ./scripts/partition_manual
 fi
