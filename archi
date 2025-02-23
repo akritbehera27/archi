@@ -88,13 +88,14 @@ update_mirrors() {
   else
     echo "Not Update you mirror list"
   fi
+  echo "Update Complete."
 }
 
 gen_fstab() {
   while true; do
     echo "Generating FSTAB file....."
     touch /mnt/etc/fstab
-    genfstab -U /mnt >> /mnt/etc/fstab
+    genfstab -U /mnt > /mnt/etc/fstab
     echo "You are requested to check the fstab file for any mistakes : "
     sleep 3
     cat /mnt/etc/fstab | less
@@ -154,5 +155,7 @@ echo -ne "
 gen_fstab
 
 #-------------------- chrooting into system ----------------------------
-./scripts/chroot_env
-
+mkdir /mnt/archi
+cp ./scripts/chroot_env /mnt/archi
+arch-chroot /mnt /archi/chroot_env
+exit
