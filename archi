@@ -118,6 +118,25 @@ inst_base_pkg() {
 fi
 }
 
+gen_fstab() {
+  while true; do
+    echo "Generating FSTAB file....."
+    touch /mnt/etc/fstab
+    genfstab -U /mnt >> /mnt/etc/fstab
+    echo "You are requested to check the fstab file for any mistakes : "
+    sleep 1
+    cat /mnt/etc/fstab | less
+    if ask_yes_no; then
+      break
+    else
+      echo "Recreating the file"
+    fi
+done
+}
+
+
+
+
 echo "Settign Console Font : Ter-v24b...."
 setfont ter-v24b
 sleep 1
@@ -161,9 +180,5 @@ echo -ne "
                 Installing the base system and essentail packages
 -------------------------------------------------------------------------
 "
-echo "Generating FSTAB file....."
-touch /mnt/etc/fstab
-genfstab -U /mnt >> /mnt/etc/fstab
-echo "You are requested to check the fstab file for any mistakes"
-cat /mnt/etc/fstab | less
 inst_base_pkg
+gen_fstab

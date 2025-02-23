@@ -17,8 +17,8 @@ ask_yes_no() {
     done
 }
 
-echo -ne '''
-    This requires You to exit it program and.."
+echo -ne "
+    This requires You to exit it program and..
 
         1 . Create Partitions
         2 . Formatting them with appropite forms
@@ -27,7 +27,7 @@ echo -ne '''
         4 . Enabling SWAP and other..
      >> An How to guid is provied in the repo main page << 
 
-'''
+"
 echo "After Doing all You'r Custom setting Plase re-run the script: "
 echo "Use 'ctrl + c' to exit:"
 
