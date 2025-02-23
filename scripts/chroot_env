@@ -56,10 +56,82 @@ host_name() {
   if [ -z "$hst" ]; then
     echo $hst > /etc/hostname
   else
-    echo "archlinux" >> /etc/hostname
+    echo "archlinux" > /etc/hostname
   fi
 }
 
-inst_base_pkg
-host_name
+lcoal() {
+  echo "Do you want to set en_US.UTF-8 UTF-8 as your local"
+  if ask_yes_no; then
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    touch /etc/locale.conf
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf
+  else
+    vim /etc/locale.gen
+    touch /etc/locale.conf
+    echo "LANG=" > /etc/locale.conf
+    vim /etc/locale.conf
+  fi
+  locale-gen
+}
 
+
+time_z() {
+echo "Do you want to set you'r time zone to Asia/Calcutta"
+if ask_yes_no; then
+  ln -sf /usr/share/zoneinfo/Asia/Calcutta /etc/localtime
+else
+  timedatectl list-timezones
+  clear
+  read -p "Enter the your TimeZone ( ex Region/City ) : " tmz
+  ln -sf /usr/share/zoneinfo/$tmz /etc/localtime
+fi
+hwclock
+}
+
+setting_users() {
+  echo "Changing the root password...."
+  passwd
+  echo "Adding new user"
+  read -p "Enter the name of the new user : " usr
+  useradd -m -g users -G wheel $usr
+  passwd $usr
+
+  echo ""
+  echo "Do you want to give sodo privlage to your user..."
+  if ask_yes_no; then
+    sed -i 's/^# *%wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+  else
+    echo ""
+  fi
+
+}
+
+git_inst() {
+  grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+  grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+inst_base_pkg
+echo -ne "
+-------------------------------------------------------------------------
+                            Configurations    
+-------------------------------------------------------------------------
+"
+echo -ne "
+--------------------------- Localization --------------------------
+"
+lcoal
+time_z
+echo -ne "
+--------------------------- Network Settings --------------------------
+"
+host_name
+echo -ne "
+--------------------------- User Configuration --------------------------
+"
+setting_users
+echo -ne "
+--------------------------- GRUB Installation --------------------------
+"
+git_inst
