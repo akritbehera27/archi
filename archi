@@ -88,36 +88,13 @@ update_mirrors() {
   fi
 }
 
-inst_base_pkg() {
-  echo "Installing Base Pakages..."
-  pacstrap -K /mnt base ,linux-lts , linux-lts-headers , linux-firmware
-
-  clear
-  echo "Installing Essestial Pakages...." 
-  pacstrap -K /mnt sudo , base-devel , grub , efibootmgr , networkmanager , lvm2 , mtools , os-prober , dosfstools , vim
-
-  clear
-  echo "Do you want to install DISPLAY Drivers for INTEL"
-  if ask_yes_no; then
-    pacstrap -K /mnt mesa , xf86-video-intel
-    
-  else
-  echo -ne "
--------------------------------------------------------------------------
-              WE ARE HUMBALLY SOORY ,WE DOTN HAVE OTHER DIVERS 
-            SET IN OUR LIBRARY... YOU HAVE TO INSTALL'EM MNUALLY
--------------------------------------------------------------------------
-"
-fi
-}
-
 gen_fstab() {
   while true; do
     echo "Generating FSTAB file....."
     touch /mnt/etc/fstab
     genfstab -U /mnt >> /mnt/etc/fstab
     echo "You are requested to check the fstab file for any mistakes : "
-    sleep 1
+    sleep 3
     cat /mnt/etc/fstab | less
     if ask_yes_no; then
       break
@@ -161,10 +138,16 @@ echo -ne "
 "
 update_mirrors
 
+#-------------------- base install starts hear----------------------------
+
+echo "Installing Base Pakages..."
+pacstrap -K /mnt base
+
 echo -ne "
--------------------------------------------------------------------------
-                Installing the base system and essentail packages
--------------------------------------------------------------------------
+--------------------------- Creating FSTAB File --------------------------
 "
-inst_base_pkg
 gen_fstab
+
+#-------------------- chrooting into system ----------------------------
+./achrt
+

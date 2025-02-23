@@ -1,0 +1,45 @@
+#!/bin/bash
+stty erase ^H
+echo -ne "
+-------------------------------------------------------------------------
+                     Installing Essestial Packages     
+-------------------------------------------------------------------------
+"
+
+inst_base_pkg() {
+echo -ne "
+--------------------------- Base Pakages --------------------------
+"
+  echo "Installing Base Pakages..."
+  pacman -S linux-ltslinux-lts-headers,linux-firmware
+
+echo -ne "
+--------------------------- Essestial Pakages --------------------------
+"
+  echo "Installing Essestial Pakages...." 
+  pacman -S sudo,base-devel,grub,efibootmgr,networkmanager,lvm2,mtools,os-prober,dosfstools,vim
+
+echo -ne "
+--------------------------- Display Dirvers --------------------------
+"
+  echo "Do you want to install DISPLAY Drivers for INTEL"
+  if ask_yes_no; then
+    pacman -S mesa,xf86-video-intel
+    
+  else
+  echo -ne "
+-------------------------------------------------------------------------
+              WE ARE HUMBALLY SOORY ,WE DOTN HAVE OTHER DIVERS 
+            SET IN OUR LIBRARY... YOU HAVE TO INSTALL'EM MNUALLY
+-------------------------------------------------------------------------
+"
+fi
+}
+
+
+host_name() {
+  #HOST Name Configurations
+}
+arch-chroot /mnt
+inst_base_pkg
+exit
