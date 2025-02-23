@@ -129,7 +129,7 @@ console_keyboard_font
 time_date
 
 #-----------------partion managment starts hear---------------------------
-./partition
+./scripts/partition_menue
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -138,8 +138,11 @@ echo -ne "
 "
 update_mirrors
 
-#-------------------- base install starts hear----------------------------
-
+echo -ne "
+-------------------------------------------------------------------------
+                     Installing Base System    
+-------------------------------------------------------------------------
+"
 echo "Installing Base Pakages..."
 pacstrap -K /mnt base
 
@@ -149,5 +152,5 @@ echo -ne "
 gen_fstab
 
 #-------------------- chrooting into system ----------------------------
-./achrt
+./scripts/chroot_env
 
