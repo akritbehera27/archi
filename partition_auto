@@ -1,5 +1,5 @@
 #!/bin/bash
-
+stty erase ^H
 echo -ne "
 -------------------------------------------------------------------------
                      Automatic partitioning     
@@ -82,7 +82,7 @@ while true; do
     lsblk
     echo "Note : Enter the full device path ex /dev/sda"
     echo ""
-    read -p "Enter the disk to partition (e.g., /dev/sdX): " DISK
+    read -ep "Enter the disk to partition (e.g., /dev/sdX): " DISK
 
     # Check if the disk exists
     fdisk -l | grep $DISK > /dev/null 2>&1

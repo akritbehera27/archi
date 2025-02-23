@@ -1,5 +1,5 @@
 #!/bin/bash
-
+stty erase ^H
 echo -ne "
 -------------------------------------------------------------------------
                      Disk Managment and Partition     
@@ -12,8 +12,9 @@ echo "Do you want to manually edit-the filesystem"
 echo "NOITCE : Using Automatic will wipe yor disk..."
 echo " [0] : Manual"
 echo " [1] : Automatic (default)"
+
 while true; do
-        read n
+        read -p " : " n
         case $n in
             [1]* | "" ) return 0;;  # Treat "Y", "y", or Enter as "yes"
             [0]* ) return 1;;       # Treat "N" or "n" as "no"

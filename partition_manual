@@ -1,5 +1,5 @@
 #!/bin/bash
-
+stty erase ^H
 echo -ne "
 -------------------------------------------------------------------------
                      Manula partitioning     
