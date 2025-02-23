@@ -186,7 +186,7 @@ lvcreate -L "$HOMESIZE" -n home "$VG_NAME"
 echo ""
 echo "[ optional, press Enter to use remaining space ] "
 read -p "Enter the size for root : " ROOT_SIZE
-  if [ -z "$ROOT_SIZE" ]; then
+if [ -z "$ROOT_SIZE" ]; then
   echo "Using remaining space for /root..."
   lvcreate -l 100%FREE -n root "$VG_NAME"
 else

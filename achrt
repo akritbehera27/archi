@@ -38,8 +38,17 @@ fi
 
 
 host_name() {
-  #HOST Name Configurations
+  echo "Generating Hosts file....."
+  touch /etc/hostname
+  echo "[ Default : archlinux ]"
+  read -p "Enter you'r hostname" hst
+  if [ -z "$hst" ]; then
+    echo $hst >> /etc/hostname
+  else
+    echo "archlinux" >> /etc/hostname
+  fi
 }
 arch-chroot /mnt
 inst_base_pkg
+host_name
 exit
